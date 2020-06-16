@@ -23,11 +23,7 @@ namespace TinySnouts.Elasticsearch.Factory
 
             if (evaluatedExpression.Operation == ExpressionType.Call)
             {
-                return new QueryContainer(new MatchQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
-                    Query = evaluatedExpression.Value.ToString()
-                });
+                return HandleMethodCalls(evaluatedExpression);
             }
 
             if (evaluatedExpression.Value.IsNumeric())
@@ -41,6 +37,27 @@ namespace TinySnouts.Elasticsearch.Factory
             }
 
             return queryContainer;
+        }
+
+        private static QueryContainer HandleMethodCalls(EvaluatedExpression evaluatedExpression)
+        {
+            var matchQuery = new MatchQuery()
+            {
+                Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase())
+            };
+            switch (evaluatedExpression.CallMethod)
+            {
+                case "StartsWith":
+                    matchQuery.Query = evaluatedExpression.Value.ToString() + "*";
+                    break;
+                case "EndsWith":
+                    matchQuery.Query = "*" + evaluatedExpression.Value.ToString();
+                    break;
+                default:
+                    matchQuery.Query = evaluatedExpression.Value.ToString();
+                    break;
+            }
+            return new QueryContainer(matchQuery);
         }
 
         private static QueryContainer HandleDateTime(EvaluatedExpression evaluatedExpression)

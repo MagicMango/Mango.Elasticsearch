@@ -6,6 +6,7 @@ namespace Mango.Elasticsearch.Expressions
     {
         public string PropertyName { get; set; }
         public ExpressionType Operation { get; set; }
+        public string CallMethod { get; set; }
         public object Value { get; set; }
         public ExpressionType CombineOperation { get; set; }
     }
