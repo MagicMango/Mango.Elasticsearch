@@ -1,5 +1,4 @@
 ﻿using Mango.Elasticsearch.Expressions;
-using Mango.Elasticsearch.Extensions;
 using Mango.Elasticsearch.Factory;
 using Nest;
 using System;
@@ -14,7 +13,15 @@ namespace Mango.ElasticSearch.Handler
     {
         public static BoolQuery CreateElasticSearchQuery(Expression<Func<TParameter, bool>> parameterToCheck)
         {
-            return SplitLogicalExpressions(parameterToCheck.Body as BinaryExpression);
+            if (parameterToCheck.Body is BinaryExpression)
+            {
+                return SplitLogicalExpressions(parameterToCheck.Body as BinaryExpression);
+            }
+            if (parameterToCheck.Body is MethodCallExpression)
+            {
+                return SplitLogicalExpressions(parameterToCheck.Body as MethodCallExpression);
+            }
+            return null;
         }
 
         private static BoolQuery SplitLogicalExpressions(BinaryExpression parameterToCheck)
@@ -22,16 +29,40 @@ namespace Mango.ElasticSearch.Handler
             var evaluatedExpressions = new List<EvaluatedExpression>();
             BinaryExpression binaryExpression = parameterToCheck;
 
-            if (binaryExpression.NodeType == ExpressionType.OrElse)
+            if (binaryExpression.NodeType == ExpressionType.OrElse && binaryExpression.Left is BinaryExpression && binaryExpression.Right is BinaryExpression)
             {
                 return new BoolQuery() { Should = new QueryContainer[] { SplitLogicalExpressions(binaryExpression.Left as BinaryExpression), SplitLogicalExpressions(binaryExpression.Right as BinaryExpression) } };
+            }
+            else if (binaryExpression.NodeType == ExpressionType.OrElse && binaryExpression.Left is MethodCallExpression && binaryExpression.Right is BinaryExpression)
+            {
+                return new BoolQuery() { Should = new QueryContainer[] { SplitLogicalExpressions(binaryExpression.Left as MethodCallExpression), SplitLogicalExpressions(binaryExpression.Right as BinaryExpression) } };
+            }
+            else if (binaryExpression.NodeType == ExpressionType.OrElse && binaryExpression.Left is BinaryExpression && binaryExpression.Right is MethodCallExpression)
+            {
+                return new BoolQuery() { Should = new QueryContainer[] { SplitLogicalExpressions(binaryExpression.Left as BinaryExpression), SplitLogicalExpressions(binaryExpression.Right as MethodCallExpression) } };
+            }
+            else if (binaryExpression.NodeType == ExpressionType.OrElse && binaryExpression.Left is MethodCallExpression && binaryExpression.Right is MethodCallExpression)
+            {
+                return new BoolQuery() { Should = new QueryContainer[] { SplitLogicalExpressions(binaryExpression.Left as MethodCallExpression), SplitLogicalExpressions(binaryExpression.Right as MethodCallExpression) } };
             }
 
             GetExpressionResults(binaryExpression, evaluatedExpressions, binaryExpression.NodeType);
 
+            return CreateExpressionsForElasticsearch(evaluatedExpressions);
+        }
+
+        private static BoolQuery SplitLogicalExpressions(MethodCallExpression methodCallExpression)
+        {
+            var evaluatedExpressions = new List<EvaluatedExpression>();
+            evaluatedExpressions.Add(EvaluationExpressionHandler.GetEvaluatedExpression(methodCallExpression.Arguments[0], methodCallExpression.Object, methodCallExpression.NodeType, methodCallExpression.NodeType));
+
+            return CreateExpressionsForElasticsearch(evaluatedExpressions);
+        }
+        private static BoolQuery CreateExpressionsForElasticsearch(List<EvaluatedExpression> evaluatedExpressions)
+        {
             var must = evaluatedExpressions
-                .Where(x => x.Operation != ExpressionType.NotEqual)
-                .Select(x => QueryFactory.CreateContainer(x));
+                            .Where(x => x.Operation != ExpressionType.NotEqual)
+                            .Select(x => QueryFactory.CreateContainer(x));
 
             var should = evaluatedExpressions
                 .Where(x => x.Operation != ExpressionType.NotEqual && x.CombineOperation == ExpressionType.OrElse)
@@ -41,7 +72,7 @@ namespace Mango.ElasticSearch.Handler
                 .Where(x => x.Operation == ExpressionType.NotEqual)
                 .Select(x => QueryFactory.CreateContainer(x));
 
-            return CreateBoolQuery(must, should, mustnot);
+            return BoolQueryHandler.CreateBoolQuery(must, should, mustnot);
         }
 
         private static void GetExpressionResults(BinaryExpression binayExpression, List<EvaluatedExpression> evaluatedExpressions, ExpressionType combineOperation)
@@ -54,51 +85,8 @@ namespace Mango.ElasticSearch.Handler
 
             if (binayExpression != null && binayExpression.Left is MemberExpression && binayExpression.Right != null)
             {
-                object result = null;
-
-                switch (binayExpression.Right.NodeType)
-                {
-                    case ExpressionType.MemberAccess:
-                        result = (binayExpression.Right as MemberExpression).GetValue();
-                        break;
-                    case ExpressionType.Constant:
-                        result = (binayExpression.Right as ConstantExpression).Value;
-                        break;
-                }
-
-                evaluatedExpressions.Add(new EvaluatedExpression
-                {
-                    PropertyName = (binayExpression.Left as MemberExpression).Member.Name,
-                    Operation = binayExpression.NodeType,
-                    CombineOperation = combineOperation,
-                    Value = result
-                });
+                evaluatedExpressions.Add(EvaluationExpressionHandler.GetEvaluatedExpression(binayExpression.Right, binayExpression.Left, binayExpression.NodeType, combineOperation));
             }
-        }
-        private static BoolQuery CreateBoolQuery(IEnumerable<QueryContainer> must, IEnumerable<QueryContainer> should, IEnumerable<QueryContainer> mustnot)
-        {
-            if (should.Count() != 0 && must.Count() == 0)
-            {
-                return new BoolQuery()
-                {
-                    Should = should.Select(x => new QueryContainer(new BoolQuery() { Must = new QueryContainer[] { x } })).ToArray(),
-                    MustNot = mustnot
-                };
-            }
-            else if (should.Count() != 0)
-            {
-                return new BoolQuery()
-                {
-                    Should = new QueryContainer[] { new BoolQuery() { Must = must }, new BoolQuery() { Must = should } },
-                    MustNot = mustnot
-                };
-            }
-            return new BoolQuery()
-            {
-                Must = must,
-                Should = should,
-                MustNot = mustnot,
-            };
         }
     }
 }
