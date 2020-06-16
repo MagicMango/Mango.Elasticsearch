@@ -8,7 +8,7 @@ public class ToTest
         public DateTime MyDateProperty { get; set; }
     }
 ```
-### Linq querys which can be translated to Elasticsearch queries
+### Linq querys which can be translated to Elasticsearch queries testet with NEST 7.7.1
 ```csharp
 BoolQuery query = ExpressionEvaluationHandler<ToTest>
                 .CreateElasticSearchQuery(
