@@ -4,7 +4,7 @@ using Nest;
 using System;
 using System.Linq.Expressions;
 
-namespace Mango.Elasticsearch.Factory
+namespace TinySnouts.Elasticsearch.Factory
 {
     public static class QueryFactory
     {
@@ -12,7 +12,7 @@ namespace Mango.Elasticsearch.Factory
         {
             QueryContainer queryContainer = null;
 
-            if (evaluatedExpression.Operation == ExpressionType.Equal)
+            if (evaluatedExpression.Operation == ExpressionType.Equal || evaluatedExpression.Operation == ExpressionType.NotEqual)
             {
                 return new QueryContainer(new MatchQuery()
                 {
@@ -21,88 +21,77 @@ namespace Mango.Elasticsearch.Factory
                 });
             }
 
-            if (evaluatedExpression.Operation == ExpressionType.NotEqual)
+            if (evaluatedExpression.Operation == ExpressionType.Call)
             {
                 return new QueryContainer(new MatchQuery()
                 {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase() + ((evaluatedExpression.Value is string) ? ".keyword" : string.Empty)),
+                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
                     Query = evaluatedExpression.Value.ToString()
                 });
             }
 
-            if (evaluatedExpression.Operation == ExpressionType.LessThan && evaluatedExpression.Value.IsNumeric())
+            if (evaluatedExpression.Value.IsNumeric())
             {
-                return new QueryContainer(new NumericRangeQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
-                    LessThan = new double?(Convert.ToDouble(evaluatedExpression.Value))
-                });
+                return HandleNumeric(evaluatedExpression);
             }
 
-            if (evaluatedExpression.Operation == ExpressionType.LessThanOrEqual && evaluatedExpression.Value.IsNumeric())
+            if (evaluatedExpression.Value is DateTime)
             {
-                return new QueryContainer(new NumericRangeQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
-                    LessThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value))
-                });
-            }
-
-            if (evaluatedExpression.Operation == ExpressionType.GreaterThan && evaluatedExpression.Value.IsNumeric())
-            {
-                return new QueryContainer(new NumericRangeQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
-                    GreaterThan = new double?(Convert.ToDouble(evaluatedExpression.Value))
-                });
-            }
-
-            if (evaluatedExpression.Operation == ExpressionType.GreaterThanOrEqual && evaluatedExpression.Value.IsNumeric())
-            {
-                return new QueryContainer(new NumericRangeQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
-                    GreaterThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value))
-                });
-            }
-
-            if (evaluatedExpression.Operation == ExpressionType.LessThan && evaluatedExpression.Value is DateTime)
-            {
-                return new QueryContainer(new DateRangeQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
-                    LessThan = Convert.ToDateTime(evaluatedExpression.Value)
-                });
-            }
-
-            if (evaluatedExpression.Operation == ExpressionType.LessThanOrEqual && evaluatedExpression.Value is DateTime)
-            {
-                return new QueryContainer(new DateRangeQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
-                    LessThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value)
-                });
-            }
-
-            if (evaluatedExpression.Operation == ExpressionType.GreaterThan && evaluatedExpression.Value is DateTime)
-            {
-                return new QueryContainer(new DateRangeQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
-                    GreaterThan = Convert.ToDateTime(evaluatedExpression.Value)
-                });
-            }
-
-            if (evaluatedExpression.Operation == ExpressionType.GreaterThanOrEqual && evaluatedExpression.Value is DateTime)
-            {
-                return new QueryContainer(new DateRangeQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
-                    GreaterThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value)
-                });
+                return HandleDateTime(evaluatedExpression);
             }
 
             return queryContainer;
+        }
+
+        private static QueryContainer HandleDateTime(EvaluatedExpression evaluatedExpression)
+        {
+            var dateRangeQuery = new DateRangeQuery()
+            {
+                Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
+            };
+            switch (evaluatedExpression.Operation)
+            {
+                case ExpressionType.LessThan:
+                    dateRangeQuery.LessThan = Convert.ToDateTime(evaluatedExpression.Value);
+                    break;
+                case ExpressionType.LessThanOrEqual:
+                    dateRangeQuery.LessThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value);
+                    break;
+                case ExpressionType.GreaterThan:
+                    dateRangeQuery.GreaterThan = Convert.ToDateTime(evaluatedExpression.Value);
+                    break;
+                case ExpressionType.GreaterThanOrEqual:
+                    dateRangeQuery.GreaterThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value);
+                    break;
+            }
+            return new QueryContainer(dateRangeQuery);
+        }
+        private static QueryContainer HandleNumeric(EvaluatedExpression evaluatedExpression)
+        {
+            var numericRangeQuery = new NumericRangeQuery()
+            {
+                Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
+            };
+            switch (evaluatedExpression.Operation)
+            {
+                case ExpressionType.LessThan:
+                    numericRangeQuery.LessThan = new double?(Convert.ToDouble(evaluatedExpression.Value));
+                    break;
+                case ExpressionType.LessThanOrEqual:
+                    numericRangeQuery.LessThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value));
+                    break;
+                case ExpressionType.GreaterThan:
+                    numericRangeQuery.GreaterThan = new double?(Convert.ToDouble(evaluatedExpression.Value));
+                    break;
+                case ExpressionType.GreaterThanOrEqual:
+                    numericRangeQuery.GreaterThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value));
+                    break;
+                default:
+                    numericRangeQuery = null;
+                    break;
+
+            }
+            return new QueryContainer(numericRangeQuery);
         }
     }
 }
