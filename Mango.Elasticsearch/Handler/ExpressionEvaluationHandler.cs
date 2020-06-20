@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using TinySnouts.Elasticsearch.Factory;
+using Mango.Elasticsearch.Factory;
 
 namespace Mango.ElasticSearch.Handler
 {

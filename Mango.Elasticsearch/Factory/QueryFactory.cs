@@ -4,7 +4,7 @@ using Nest;
 using System;
 using System.Linq.Expressions;
 
-namespace TinySnouts.Elasticsearch.Factory
+namespace Mango.Elasticsearch.Factory
 {
     public static class QueryFactory
     {
