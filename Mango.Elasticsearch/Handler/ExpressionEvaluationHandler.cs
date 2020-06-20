@@ -1,10 +1,10 @@
 ﻿using Mango.Elasticsearch.Expressions;
-using Mango.Elasticsearch.Factory;
 using Nest;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using TinySnouts.Elasticsearch.Factory;
 
 namespace Mango.ElasticSearch.Handler
 {
@@ -13,13 +13,18 @@ namespace Mango.ElasticSearch.Handler
     {
         public static BoolQuery CreateElasticSearchQuery(Expression<Func<TParameter, bool>> parameterToCheck)
         {
-            if (parameterToCheck.Body is BinaryExpression)
+            return HandleExpression(parameterToCheck.Body);
+        }
+
+        private static BoolQuery HandleExpression(Expression parameterToCheck)
+        {
+            if (parameterToCheck is BinaryExpression)
             {
-                return SplitLogicalExpressions(parameterToCheck.Body as BinaryExpression);
+                return SplitLogicalExpressions(parameterToCheck as BinaryExpression);
             }
-            if (parameterToCheck.Body is MethodCallExpression)
+            if (parameterToCheck is MethodCallExpression)
             {
-                return SplitLogicalExpressions(parameterToCheck.Body as MethodCallExpression);
+                return SplitLogicalExpressions(parameterToCheck as MethodCallExpression);
             }
             return null;
         }
@@ -54,7 +59,13 @@ namespace Mango.ElasticSearch.Handler
         private static BoolQuery SplitLogicalExpressions(MethodCallExpression methodCallExpression)
         {
             var evaluatedExpressions = new List<EvaluatedExpression>();
-            evaluatedExpressions.Add(EvaluationExpressionHandler.GetEvaluatedExpression(methodCallExpression.Arguments[0], methodCallExpression.Object, methodCallExpression.NodeType, methodCallExpression.NodeType));
+            EvaluatedExpression evaluatedExpression = methodCallExpression.Arguments.Count switch
+            {
+                2 => EvaluationExpressionHandler.GetEvaluatedExpression(methodCallExpression.Arguments[0], methodCallExpression.Arguments[1], methodCallExpression.NodeType),
+                _ => EvaluationExpressionHandler.GetEvaluatedExpression(methodCallExpression.Arguments[0], methodCallExpression.Object, methodCallExpression.NodeType),
+            };
+            evaluatedExpression.CallMethod = methodCallExpression.Method.Name;
+            evaluatedExpressions.Add(evaluatedExpression);
 
             return CreateExpressionsForElasticsearch(evaluatedExpressions);
         }

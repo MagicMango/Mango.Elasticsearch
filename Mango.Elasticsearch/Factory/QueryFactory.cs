@@ -10,8 +10,6 @@ namespace TinySnouts.Elasticsearch.Factory
     {
         public static QueryContainer CreateContainer(EvaluatedExpression evaluatedExpression)
         {
-            QueryContainer queryContainer = null;
-
             if (evaluatedExpression.Operation == ExpressionType.Equal || evaluatedExpression.Operation == ExpressionType.NotEqual)
             {
                 return new QueryContainer(new MatchQuery()
@@ -36,7 +34,7 @@ namespace TinySnouts.Elasticsearch.Factory
                 return HandleDateTime(evaluatedExpression);
             }
 
-            return queryContainer;
+            return null;
         }
 
         private static QueryContainer HandleMethodCalls(EvaluatedExpression evaluatedExpression)
@@ -53,6 +51,13 @@ namespace TinySnouts.Elasticsearch.Factory
                 case "EndsWith":
                     matchQuery.Query = "*" + evaluatedExpression.Value.ToString();
                     break;
+                case "Contains":
+                    var r = new List<QueryContainer>();
+                    foreach (var item in (IList)evaluatedExpression.Value)
+                    {
+                        r.Add(new QueryContainer(new BoolQuery() { Must = new QueryContainer[] { new MatchQuery() { Field = matchQuery.Field, Query = item.ToString() } } }));
+                    }
+                    return new QueryContainer(new BoolQuery() { Should = r });
                 default:
                     matchQuery.Query = evaluatedExpression.Value.ToString();
                     break;
