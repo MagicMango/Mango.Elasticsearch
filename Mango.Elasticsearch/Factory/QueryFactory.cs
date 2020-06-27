@@ -14,18 +14,17 @@ namespace Mango.Elasticsearch.Factory
         {
             return evaluatedExpression switch
             {
-                EvaluatedExpression e when e.Operation == ExpressionType.Call
-                        => HandleMethodCalls(evaluatedExpression),
-                EvaluatedExpression e when e.Operation == ExpressionType.Equal || e.Operation == ExpressionType.NotEqual
-                        => new QueryContainer(new MatchQuery()
-                        {
-                            Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase() + ((evaluatedExpression.Value is string) ? ".keyword" : string.Empty)),
-                            Query = evaluatedExpression.Value.ToString()
-                        }),
-                EvaluatedExpression e when e.Value.IsNumeric()
-                        => HandleNumeric(evaluatedExpression),
-                EvaluatedExpression e when e.Value is DateTime
-                        => HandleDateTime(evaluatedExpression),
+                EvaluatedExpression e when e.Operation == ExpressionType.Call ||
+                                           e.CallMethod != null => HandleMethodCalls(evaluatedExpression),
+                EvaluatedExpression e when e.Operation == ExpressionType.Equal ||
+                                           e.Operation == ExpressionType.NotEqual
+                                                                                    => new QueryContainer(new MatchQuery()
+                                                                                    {
+                                                                                        Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase() + ((evaluatedExpression.Value is string) ? ".keyword" : string.Empty)),
+                                                                                        Query = evaluatedExpression.Value.ToStringExtendend()
+                                                                                    }),
+                EvaluatedExpression e when e.Value.IsNumeric() => HandleNumeric(evaluatedExpression),
+                EvaluatedExpression e when e.Value is DateTime => HandleDateTime(evaluatedExpression),
                 _ => null
             };
         }

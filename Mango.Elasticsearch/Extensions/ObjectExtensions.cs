@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 
@@ -31,11 +32,11 @@ namespace Mango.Elasticsearch.Extensions
             }
             return null;
         }
-
-        public static Func<TResult> ConvertToFunc<TResult>(this Func<TResult> lambdaExpression)
+        public static string ToStringExtendend(this object o) => o switch
         {
-            return lambdaExpression;
-        }
+            var d when d is DateTime => ((DateTime)d).ToString(CultureInfo.InvariantCulture.DateTimeFormat.SortableDateTimePattern),
+            _ => o.ToString()
+        };
 
         public static bool IsNumeric(this object o) => o is byte || o is sbyte || o is ushort || o is uint || o is ulong || o is short || o is int || o is long || o is float || o is double || o is decimal;
     }
