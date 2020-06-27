@@ -10,6 +10,7 @@ namespace Mango.ElasticSearch.Handler
         public static EvaluatedExpression GetEvaluatedExpression(Expression value, Expression member, ExpressionType nodeOperation, ExpressionType combineOperation)
         {
             object result = null;
+            string method = null;
 
             switch (value.NodeType)
             {
@@ -19,11 +20,16 @@ namespace Mango.ElasticSearch.Handler
                 case ExpressionType.Constant:
                     result = (value as ConstantExpression).Value;
                     break;
+                case ExpressionType.Call:
+                    method = (value as MethodCallExpression).Method.Name;
+                    result = ((value as MethodCallExpression).Object as MemberExpression).GetValue();
+                    break;
             }
 
             return new EvaluatedExpression
             {
                 PropertyName = ExtractMemberName(member as MemberExpression),
+                CallMethod = method,
                 Operation = nodeOperation,
                 CombineOperation = combineOperation,
                 Value = result
