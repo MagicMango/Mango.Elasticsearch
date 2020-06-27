@@ -2,6 +2,8 @@
 using Mango.Elasticsearch.Extensions;
 using Nest;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 
 namespace Mango.Elasticsearch.Factory
@@ -10,31 +12,22 @@ namespace Mango.Elasticsearch.Factory
     {
         public static QueryContainer CreateContainer(EvaluatedExpression evaluatedExpression)
         {
-            if (evaluatedExpression.Operation == ExpressionType.Equal || evaluatedExpression.Operation == ExpressionType.NotEqual)
+            return evaluatedExpression switch
             {
-                return new QueryContainer(new MatchQuery()
-                {
-                    Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase() + ((evaluatedExpression.Value is string) ? ".keyword" : string.Empty)),
-                    Query = evaluatedExpression.Value.ToString()
-                });
-            }
-
-            if (evaluatedExpression.Operation == ExpressionType.Call)
-            {
-                return HandleMethodCalls(evaluatedExpression);
-            }
-
-            if (evaluatedExpression.Value.IsNumeric())
-            {
-                return HandleNumeric(evaluatedExpression);
-            }
-
-            if (evaluatedExpression.Value is DateTime)
-            {
-                return HandleDateTime(evaluatedExpression);
-            }
-
-            return null;
+                EvaluatedExpression e when e.Operation == ExpressionType.Equal || e.Operation == ExpressionType.NotEqual
+                        => new QueryContainer(new MatchQuery()
+                        {
+                            Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase() + ((evaluatedExpression.Value is string) ? ".keyword" : string.Empty)),
+                            Query = evaluatedExpression.Value.ToString()
+                        }),
+                EvaluatedExpression e when e.Operation == ExpressionType.Call
+                        => HandleMethodCalls(evaluatedExpression),
+                EvaluatedExpression e when e.Value.IsNumeric()
+                        => HandleNumeric(evaluatedExpression),
+                EvaluatedExpression e when e.Value is DateTime
+                        => HandleDateTime(evaluatedExpression),
+                _ => null
+            };
         }
 
         private static QueryContainer HandleMethodCalls(EvaluatedExpression evaluatedExpression)
@@ -43,26 +36,45 @@ namespace Mango.Elasticsearch.Factory
             {
                 Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase())
             };
-            switch (evaluatedExpression.CallMethod)
+            return evaluatedExpression.CallMethod switch
             {
-                case "StartsWith":
+                "StartsWith" => ((Func<QueryContainer>)(() =>
+                {
                     matchQuery.Query = evaluatedExpression.Value.ToString() + "*";
-                    break;
-                case "EndsWith":
+                    return new QueryContainer(matchQuery);
+                }))(),
+                "EndsWith" => ((Func<QueryContainer>)(() =>
+                {
                     matchQuery.Query = "*" + evaluatedExpression.Value.ToString();
-                    break;
-                case "Contains":
-                    var r = new List<QueryContainer>();
-                    foreach (var item in (IList)evaluatedExpression.Value)
-                    {
-                        r.Add(new QueryContainer(new BoolQuery() { Must = new QueryContainer[] { new MatchQuery() { Field = matchQuery.Field, Query = item.ToString() } } }));
-                    }
-                    return new QueryContainer(new BoolQuery() { Should = r });
-                default:
+                    return new QueryContainer(matchQuery);
+                }))(),
+                "ToLower" => ((Func<QueryContainer>)(() =>
+                {
+                    matchQuery.Query = evaluatedExpression.Value.ToString().ToLower();
+                    return new QueryContainer(matchQuery);
+                }))(),
+                "ToUpper" => ((Func<QueryContainer>)(() =>
+                {
+                    matchQuery.Query = evaluatedExpression.Value.ToString().ToUpper();
+                    return new QueryContainer(matchQuery);
+                }))(),
+                "Contains" => EvaluateContains(evaluatedExpression.Value, matchQuery),
+                _ => ((Func<QueryContainer>)(() =>
+                {
                     matchQuery.Query = evaluatedExpression.Value.ToString();
-                    break;
+                    return new QueryContainer(matchQuery);
+                }))()
+            };
+        }
+
+        private static QueryContainer EvaluateContains(object value, MatchQuery matchQuery)
+        {
+            var r = new List<QueryContainer>();
+            foreach (var item in (IList)value)
+            {
+                r.Add(new QueryContainer(new BoolQuery() { Must = new QueryContainer[] { new MatchQuery() { Field = matchQuery.Field, Query = item.ToString() } } }));
             }
-            return new QueryContainer(matchQuery);
+            return new QueryContainer(new BoolQuery() { Should = r });
         }
 
         private static QueryContainer HandleDateTime(EvaluatedExpression evaluatedExpression)
@@ -71,21 +83,14 @@ namespace Mango.Elasticsearch.Factory
             {
                 Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
             };
-            switch (evaluatedExpression.Operation)
+            _ = (evaluatedExpression.Operation switch
             {
-                case ExpressionType.LessThan:
-                    dateRangeQuery.LessThan = Convert.ToDateTime(evaluatedExpression.Value);
-                    break;
-                case ExpressionType.LessThanOrEqual:
-                    dateRangeQuery.LessThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value);
-                    break;
-                case ExpressionType.GreaterThan:
-                    dateRangeQuery.GreaterThan = Convert.ToDateTime(evaluatedExpression.Value);
-                    break;
-                case ExpressionType.GreaterThanOrEqual:
-                    dateRangeQuery.GreaterThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value);
-                    break;
-            }
+                ExpressionType.LessThan => dateRangeQuery.LessThan = Convert.ToDateTime(evaluatedExpression.Value),
+                ExpressionType.LessThanOrEqual => dateRangeQuery.LessThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
+                ExpressionType.GreaterThan => dateRangeQuery.GreaterThan = Convert.ToDateTime(evaluatedExpression.Value),
+                ExpressionType.GreaterThanOrEqual => dateRangeQuery.GreaterThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
+                _ => default
+            });
             return new QueryContainer(dateRangeQuery);
         }
         private static QueryContainer HandleNumeric(EvaluatedExpression evaluatedExpression)
@@ -94,25 +99,15 @@ namespace Mango.Elasticsearch.Factory
             {
                 Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase()),
             };
-            switch (evaluatedExpression.Operation)
+            _ = (evaluatedExpression.Operation switch
             {
-                case ExpressionType.LessThan:
-                    numericRangeQuery.LessThan = new double?(Convert.ToDouble(evaluatedExpression.Value));
-                    break;
-                case ExpressionType.LessThanOrEqual:
-                    numericRangeQuery.LessThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value));
-                    break;
-                case ExpressionType.GreaterThan:
-                    numericRangeQuery.GreaterThan = new double?(Convert.ToDouble(evaluatedExpression.Value));
-                    break;
-                case ExpressionType.GreaterThanOrEqual:
-                    numericRangeQuery.GreaterThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value));
-                    break;
-                default:
-                    numericRangeQuery = null;
-                    break;
+                ExpressionType.LessThan => numericRangeQuery.LessThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.LessThanOrEqual => numericRangeQuery.LessThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.GreaterThan => numericRangeQuery.GreaterThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.GreaterThanOrEqual => numericRangeQuery.GreaterThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                _ => default
 
-            }
+            });
             return new QueryContainer(numericRangeQuery);
         }
     }

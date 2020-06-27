@@ -8,28 +8,26 @@ namespace Mango.ElasticSearch.Handler
     {
         public static BoolQuery CreateBoolQuery(IEnumerable<QueryContainer> must, IEnumerable<QueryContainer> should, IEnumerable<QueryContainer> mustnot)
         {
-            if (should.Count() != 0 && must.Count() == 0)
+            return ((must.Any(), should.Any(), mustnot.Any()) switch
             {
-                return new BoolQuery()
+                (false, true, _) => new BoolQuery()
                 {
                     Should = should.Select(x => new QueryContainer(new BoolQuery() { Must = new QueryContainer[] { x } })).ToArray(),
                     MustNot = mustnot
-                };
-            }
-            else if (should.Count() != 0)
-            {
-                return new BoolQuery()
+                },
+                (_, true, _) => new BoolQuery()
                 {
                     Should = new QueryContainer[] { new BoolQuery() { Must = must }, new BoolQuery() { Must = should } },
                     MustNot = mustnot
-                };
-            }
-            return new BoolQuery()
-            {
-                Must = must,
-                Should = should,
-                MustNot = mustnot,
-            };
+                },
+                _ => new BoolQuery()
+                {
+                    Must = must,
+                    Should = should,
+                    MustNot = mustnot,
+                }
+            });
         }
     }
+}
 }
