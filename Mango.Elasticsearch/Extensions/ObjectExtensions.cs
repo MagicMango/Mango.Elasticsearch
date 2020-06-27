@@ -34,7 +34,7 @@ namespace Mango.Elasticsearch.Extensions
         }
         public static string ToStringExtendend(this object o) => o switch
         {
-            var d when d is DateTime => ((DateTime)d).ToString(CultureInfo.InvariantCulture.DateTimeFormat.SortableDateTimePattern),
+            DateTime time => time.ToString(CultureInfo.InvariantCulture.DateTimeFormat.SortableDateTimePattern),
             _ => o.ToString()
         };
 
