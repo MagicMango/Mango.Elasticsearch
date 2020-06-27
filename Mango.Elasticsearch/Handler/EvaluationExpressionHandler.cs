@@ -1,5 +1,6 @@
 ﻿using Mango.Elasticsearch.Expressions;
 using Mango.Elasticsearch.Extensions;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
@@ -12,19 +13,16 @@ namespace Mango.ElasticSearch.Handler
             object result = null;
             string method = null;
 
-            switch (value.NodeType)
+            result = value.NodeType switch
             {
-                case ExpressionType.MemberAccess:
-                    result = (value as MemberExpression).GetValue();
-                    break;
-                case ExpressionType.Constant:
-                    result = (value as ConstantExpression).Value;
-                    break;
-                case ExpressionType.Call:
-                    method = (value as MethodCallExpression).Method.Name;
-                    result = ((value as MethodCallExpression).Object as MemberExpression).GetValue();
-                    break;
-            }
+                ExpressionType.MemberAccess => (value as MemberExpression).GetValue(),
+                ExpressionType.Constant     => (value as ConstantExpression).Value,
+                ExpressionType.Call         => ((Func<object>)(()=> {
+                                                    method = (value as MethodCallExpression).Method.Name;
+                                                    return  ((value as MethodCallExpression).Object as MemberExpression).GetValue();
+                                                }))(),
+                _ => default
+            };
 
             return new EvaluatedExpression
             {
@@ -34,6 +32,11 @@ namespace Mango.ElasticSearch.Handler
                 CombineOperation = combineOperation,
                 Value = result
             };
+        }
+
+        public static EvaluatedExpression GetEvaluatedExpression(Expression member, Expression value, ExpressionType nodeOperation)
+        {
+            return GetEvaluatedExpression(member, value, nodeOperation, nodeOperation);
         }
 
         public static string ExtractMemberName(MemberExpression memberExpressionName)
@@ -46,11 +49,6 @@ namespace Mango.ElasticSearch.Handler
             }
             memberNames.Reverse();
             return string.Join('.', memberNames);
-        }
-
-        public static EvaluatedExpression GetEvaluatedExpression(Expression member, Expression value, ExpressionType nodeOperation)
-        {
-            return GetEvaluatedExpression(member, value, nodeOperation, nodeOperation);
         }
     }
 }
