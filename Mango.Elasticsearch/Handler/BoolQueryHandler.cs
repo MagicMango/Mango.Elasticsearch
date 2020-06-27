@@ -30,4 +30,3 @@ namespace Mango.ElasticSearch.Handler
         }
     }
 }
-}
