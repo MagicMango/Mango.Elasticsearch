@@ -15,8 +15,6 @@ namespace Mango.ElasticSearch.Handler
         {
             return CheckForHandle(rootExpression.Body, ExpressionType.Default);
         }
-
-
         public static BoolQuery CheckForHandle(Expression expression, ExpressionType operandType)
         {
             return expression switch
@@ -28,12 +26,10 @@ namespace Mango.ElasticSearch.Handler
                 _ => new BoolQuery()
             };
         }
-
         private static BoolQuery HandleExpression(MemberExpression memberExpression, ExpressionType operandType)
         {
             throw new InvalidOperationException();
         }
-
         public static BoolQuery HandleExpression(BinaryExpression binaryExpression, ExpressionType operandType)
         {
             return (binaryExpression.NodeType, operandType, binaryExpression.Left.NodeType, binaryExpression.Right.NodeType) switch
@@ -41,44 +37,59 @@ namespace Mango.ElasticSearch.Handler
                 (_, ExpressionType.Not, _, ExpressionType.MemberAccess)     => new BoolQuery()
                 {
                     MustNot = new QueryContainer[] {
-                        CreateExpressionsForElasticsearch(new[] { EvaluationExpressionHandler.GetEvaluatedExpression(binaryExpression.Left, binaryExpression.Right, binaryExpression.NodeType, operandType) }.ToList())
+                        CreateExpressionsForElasticsearch(new[] 
+                        { 
+                            EvaluationExpressionHandler
+                                .GetEvaluatedExpression(binaryExpression.Left, binaryExpression.Right, binaryExpression.NodeType, operandType) 
+                        }.ToList())
                     }
                 },
                 (_, ExpressionType.Not, ExpressionType.MemberAccess, _)     => new BoolQuery()
                 {
-                    MustNot = new QueryContainer[] {CreateExpressionsForElasticsearch(new[] { EvaluationExpressionHandler.GetEvaluatedExpression(binaryExpression.Right, binaryExpression.Left, binaryExpression.NodeType, operandType) }.ToList())
-                     }
+                    MustNot = new QueryContainer[] 
+                    {
+                        CreateExpressionsForElasticsearch(new[] 
+                        { 
+                            EvaluationExpressionHandler
+                                .GetEvaluatedExpression(binaryExpression.Right, binaryExpression.Left, binaryExpression.NodeType, operandType) 
+                        }.ToList())
+                    }
                 },
                 (_, ExpressionType.Not, _, _)                               => new BoolQuery()
                 {
                     MustNot = new QueryContainer[]
                     {
-                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
+                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), 
+                        CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
                     }
                 },
                 (ExpressionType.OrElse, _, _, _)                            => new BoolQuery()
                 {
                     Should = new QueryContainer[]
                     {
-                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
+                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), 
+                        CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
                     }
                 },
                 (ExpressionType.AndAlso, _, _, _)                           => new BoolQuery()
                 {
                     Must = new QueryContainer[]
                     {
-                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
+                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), 
+                        CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
                     }
                 },
-                _ => CreateExpressionsForElasticsearch(new[] { EvaluationExpressionHandler.GetEvaluatedExpression(binaryExpression.Right, binaryExpression.Left, binaryExpression.NodeType, operandType) }.ToList())
+                _ => CreateExpressionsForElasticsearch(new[] 
+                    { 
+                        EvaluationExpressionHandler
+                            .GetEvaluatedExpression(binaryExpression.Right, binaryExpression.Left, binaryExpression.NodeType, operandType) 
+                    }.ToList())
             };
         }
-
         public static BoolQuery HandleExpression(UnaryExpression unaryExpression, ExpressionType operandType)
         {
             return CheckForHandle(unaryExpression.Operand, unaryExpression.NodeType);
         }
-
         public static BoolQuery HandleExpression(MethodCallExpression methodCallExpression, ExpressionType operandType)
         {
             var evaluatedExpressions = new List<EvaluatedExpression>();
@@ -92,20 +103,22 @@ namespace Mango.ElasticSearch.Handler
             evaluatedExpressions.Add(evaluatedExpression);
             return CreateExpressionsForElasticsearch(evaluatedExpressions);
         }
-
         private static BoolQuery CreateExpressionsForElasticsearch(List<EvaluatedExpression> evaluatedExpressions)
         {
             var must = evaluatedExpressions
-                            .Where(x => x.Operation != ExpressionType.NotEqual && x.CombineOperation != ExpressionType.OrElse)
-                            .Select(x => QueryFactory.CreateContainer(x));
+                .Where(x => x.Operation != ExpressionType.NotEqual && x.CombineOperation != ExpressionType.OrElse)
+                .Select(x => QueryContainerFactory.CreateContainer(x))
+                .ToList();
 
             var should = evaluatedExpressions
                 .Where(x => x.Operation != ExpressionType.NotEqual && x.CombineOperation == ExpressionType.OrElse)
-                .Select(x => QueryFactory.CreateContainer(x));
+                .Select(x => QueryContainerFactory.CreateContainer(x))
+                .ToList();
 
             var mustnot = evaluatedExpressions
                 .Where(x => x.Operation == ExpressionType.NotEqual)
-                .Select(x => QueryFactory.CreateContainer(x));
+                .Select(x => QueryContainerFactory.CreateContainer(x))
+                .ToList();
 
             return BoolQueryHandler.CreateBoolQuery(must, should, mustnot);
         }

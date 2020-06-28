@@ -9,7 +9,7 @@ using static Mango.Elasticsearch.Extensions.ObjectExtensions;
 
 namespace Mango.Elasticsearch.Factory
 {
-    public static class QueryFactory
+    public static class QueryContainerFactory
     {
         public static QueryContainer CreateContainer(EvaluatedExpression evaluatedExpression)
         {
@@ -29,7 +29,6 @@ namespace Mango.Elasticsearch.Factory
                 _ => null
             };
         }
-
         private static QueryContainer HandleMethodCalls(EvaluatedExpression evaluatedExpression)
         {
             var matchQuery = new MatchQuery()
@@ -61,12 +60,11 @@ namespace Mango.Elasticsearch.Factory
                 "Contains"          => EvaluateContains(evaluatedExpression.Value, matchQuery),
                 _                   => ExecuteFunc(() =>
                 {
-                    matchQuery.Query = evaluatedExpression.Value.ToString();
+                    matchQuery.Query = evaluatedExpression.Value.ToStringExtendend();
                     return new QueryContainer(matchQuery);
                 })
             };
         }
-
         private static QueryContainer EvaluateContains(object value, MatchQuery matchQuery)
         {
             var r = new List<QueryContainer>();
@@ -76,7 +74,6 @@ namespace Mango.Elasticsearch.Factory
             }
             return new QueryContainer(new BoolQuery() { Should = r });
         }
-
         private static QueryContainer HandleDateTime(EvaluatedExpression evaluatedExpression)
         {
             var dateRangeQuery = new DateRangeQuery()

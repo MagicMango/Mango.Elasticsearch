@@ -17,7 +17,7 @@ namespace Mango.ElasticSearch.Handler
             {
                 ExpressionType.MemberAccess => (value as MemberExpression).GetValue(),
                 ExpressionType.Constant     => (value as ConstantExpression).Value,
-                ExpressionType.Call         =>  ExecuteFunc(()=> {
+                ExpressionType.Call         => ExecuteFunc(()=> {
                                                     method = (value as MethodCallExpression).Method.Name;
                                                     return  ((value as MethodCallExpression).Object as MemberExpression).GetValue();
                                                 }),
