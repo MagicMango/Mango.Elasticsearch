@@ -10,17 +10,17 @@ namespace Mango.ElasticSearch.Handler
         {
             return ((must.Any(), should.Any(), mustnot.Any()) switch
             {
-                (false, true, _) => new BoolQuery()
+                (false, true, _)        => new BoolQuery()
                 {
                     Should = should.Select(x => new QueryContainer(new BoolQuery() { Must = new QueryContainer[] { x } })).ToArray(),
                     MustNot = mustnot
                 },
-                (_, true, _) => new BoolQuery()
+                (_, true, _)            => new BoolQuery()
                 {
                     Should = new QueryContainer[] { new BoolQuery() { Must = must }, new BoolQuery() { Must = should } },
                     MustNot = mustnot
                 },
-                _ => new BoolQuery()
+                _                       => new BoolQuery()
                 {
                     Must = must,
                     Should = should,

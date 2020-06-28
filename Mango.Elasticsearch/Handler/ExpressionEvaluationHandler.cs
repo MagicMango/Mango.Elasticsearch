@@ -21,9 +21,9 @@ namespace Mango.ElasticSearch.Handler
         {
             return expression switch
             {
-                Expression e when e is BinaryExpression => HandleExpression(e as BinaryExpression, operandType),
-                Expression e when e is UnaryExpression => HandleExpression(e as UnaryExpression, operandType),
-                Expression e when e is MemberExpression => HandleExpression(e as MemberExpression, operandType),
+                Expression e when e is BinaryExpression     => HandleExpression(e as BinaryExpression, operandType),
+                Expression e when e is UnaryExpression      => HandleExpression(e as UnaryExpression, operandType),
+                Expression e when e is MemberExpression     => HandleExpression(e as MemberExpression, operandType),
                 Expression e when e is MethodCallExpression => HandleExpression(e as MethodCallExpression, operandType),
                 _ => new BoolQuery()
             };
@@ -31,39 +31,39 @@ namespace Mango.ElasticSearch.Handler
 
         private static BoolQuery HandleExpression(MemberExpression memberExpression, ExpressionType operandType)
         {
-            throw new NotImplementedException();
+            throw new InvalidOperationException();
         }
 
         public static BoolQuery HandleExpression(BinaryExpression binaryExpression, ExpressionType operandType)
         {
             return (binaryExpression.NodeType, operandType, binaryExpression.Left.NodeType, binaryExpression.Right.NodeType) switch
             {
-                (_, ExpressionType.Not, _, ExpressionType.MemberAccess) => new BoolQuery()
+                (_, ExpressionType.Not, _, ExpressionType.MemberAccess)     => new BoolQuery()
                 {
                     MustNot = new QueryContainer[] {
                         CreateExpressionsForElasticsearch(new[] { EvaluationExpressionHandler.GetEvaluatedExpression(binaryExpression.Left, binaryExpression.Right, binaryExpression.NodeType, operandType) }.ToList())
                     }
                 },
-                (_, ExpressionType.Not, ExpressionType.MemberAccess, _) => new BoolQuery()
+                (_, ExpressionType.Not, ExpressionType.MemberAccess, _)     => new BoolQuery()
                 {
                     MustNot = new QueryContainer[] {CreateExpressionsForElasticsearch(new[] { EvaluationExpressionHandler.GetEvaluatedExpression(binaryExpression.Right, binaryExpression.Left, binaryExpression.NodeType, operandType) }.ToList())
                      }
                 },
-                (_, ExpressionType.Not, _, _) => new BoolQuery()
+                (_, ExpressionType.Not, _, _)                               => new BoolQuery()
                 {
                     MustNot = new QueryContainer[]
                     {
                         CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
                     }
                 },
-                (ExpressionType.OrElse, _, _, _) => new BoolQuery()
+                (ExpressionType.OrElse, _, _, _)                            => new BoolQuery()
                 {
                     Should = new QueryContainer[]
                     {
                         CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
                     }
                 },
-                (ExpressionType.AndAlso, _, _, _) => new BoolQuery()
+                (ExpressionType.AndAlso, _, _, _)                           => new BoolQuery()
                 {
                     Must = new QueryContainer[]
                     {

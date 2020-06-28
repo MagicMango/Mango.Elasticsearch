@@ -1,8 +1,8 @@
 ﻿using Mango.Elasticsearch.Expressions;
 using Mango.Elasticsearch.Extensions;
-using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using static Mango.Elasticsearch.Extensions.ObjectExtensions;
 
 namespace Mango.ElasticSearch.Handler
 {
@@ -17,10 +17,10 @@ namespace Mango.ElasticSearch.Handler
             {
                 ExpressionType.MemberAccess => (value as MemberExpression).GetValue(),
                 ExpressionType.Constant     => (value as ConstantExpression).Value,
-                ExpressionType.Call         => ((Func<object>)(()=> {
+                ExpressionType.Call         =>  ExecuteFunc(()=> {
                                                     method = (value as MethodCallExpression).Method.Name;
                                                     return  ((value as MethodCallExpression).Object as MemberExpression).GetValue();
-                                                }))(),
+                                                }),
                 _ => default
             };
 

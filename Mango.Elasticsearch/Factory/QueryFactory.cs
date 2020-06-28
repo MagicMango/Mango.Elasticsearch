@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using static Mango.Elasticsearch.Extensions.ObjectExtensions;
 
 namespace Mango.Elasticsearch.Factory
 {
@@ -15,7 +16,7 @@ namespace Mango.Elasticsearch.Factory
             return evaluatedExpression switch
             {
                 EvaluatedExpression e when e.Operation == ExpressionType.Call ||
-                                           e.CallMethod != null => HandleMethodCalls(evaluatedExpression),
+                                           e.CallMethod != null                     => HandleMethodCalls(evaluatedExpression),
                 EvaluatedExpression e when e.Operation == ExpressionType.Equal ||
                                            e.Operation == ExpressionType.NotEqual
                                                                                     => new QueryContainer(new MatchQuery()
@@ -23,8 +24,8 @@ namespace Mango.Elasticsearch.Factory
                                                                                         Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase() + ((evaluatedExpression.Value is string) ? ".keyword" : string.Empty)),
                                                                                         Query = evaluatedExpression.Value.ToStringExtendend()
                                                                                     }),
-                EvaluatedExpression e when e.Value.IsNumeric() => HandleNumeric(evaluatedExpression),
-                EvaluatedExpression e when e.Value is DateTime => HandleDateTime(evaluatedExpression),
+                EvaluatedExpression e when e.Value.IsNumeric()                      => HandleNumeric(evaluatedExpression),
+                EvaluatedExpression e when e.Value is DateTime                      => HandleDateTime(evaluatedExpression),
                 _ => null
             };
         }
@@ -37,32 +38,32 @@ namespace Mango.Elasticsearch.Factory
             };
             return evaluatedExpression.CallMethod switch
             {
-                "StartsWith" => ((Func<QueryContainer>)(() =>
+                "StartsWith"        => ExecuteFunc(() =>
                 {
                     matchQuery.Query = evaluatedExpression.Value.ToString() + "*";
                     return new QueryContainer(matchQuery);
-                }))(),
-                "EndsWith" => ((Func<QueryContainer>)(() =>
+                }),
+                "EndsWith"          => ExecuteFunc(() =>
                 {
                     matchQuery.Query = "*" + evaluatedExpression.Value.ToString();
                     return new QueryContainer(matchQuery);
-                }))(),
-                "ToLower" => ((Func<QueryContainer>)(() =>
+                }),
+                "ToLower"           => ExecuteFunc(() =>
                 {
                     matchQuery.Query = evaluatedExpression.Value.ToString().ToLower();
                     return new QueryContainer(matchQuery);
-                }))(),
-                "ToUpper" => ((Func<QueryContainer>)(() =>
+                }),
+                "ToUpper"           => ExecuteFunc(() =>
                 {
                     matchQuery.Query = evaluatedExpression.Value.ToString().ToUpper();
                     return new QueryContainer(matchQuery);
-                }))(),
-                "Contains" => EvaluateContains(evaluatedExpression.Value, matchQuery),
-                _ => ((Func<QueryContainer>)(() =>
+                }),
+                "Contains"          => EvaluateContains(evaluatedExpression.Value, matchQuery),
+                _                   => ExecuteFunc(() =>
                 {
                     matchQuery.Query = evaluatedExpression.Value.ToString();
                     return new QueryContainer(matchQuery);
-                }))()
+                })
             };
         }
 
@@ -84,11 +85,11 @@ namespace Mango.Elasticsearch.Factory
             };
             _ = (evaluatedExpression.Operation switch
             {
-                ExpressionType.LessThan => dateRangeQuery.LessThan = Convert.ToDateTime(evaluatedExpression.Value),
-                ExpressionType.LessThanOrEqual => dateRangeQuery.LessThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
-                ExpressionType.GreaterThan => dateRangeQuery.GreaterThan = Convert.ToDateTime(evaluatedExpression.Value),
-                ExpressionType.GreaterThanOrEqual => dateRangeQuery.GreaterThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
-                _ => default
+                ExpressionType.LessThan             => dateRangeQuery.LessThan = Convert.ToDateTime(evaluatedExpression.Value),
+                ExpressionType.LessThanOrEqual      => dateRangeQuery.LessThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
+                ExpressionType.GreaterThan          => dateRangeQuery.GreaterThan = Convert.ToDateTime(evaluatedExpression.Value),
+                ExpressionType.GreaterThanOrEqual   => dateRangeQuery.GreaterThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
+                _                                   => default
             });
             return new QueryContainer(dateRangeQuery);
         }
@@ -100,10 +101,10 @@ namespace Mango.Elasticsearch.Factory
             };
             _ = (evaluatedExpression.Operation switch
             {
-                ExpressionType.LessThan => numericRangeQuery.LessThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
-                ExpressionType.LessThanOrEqual => numericRangeQuery.LessThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
-                ExpressionType.GreaterThan => numericRangeQuery.GreaterThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
-                ExpressionType.GreaterThanOrEqual => numericRangeQuery.GreaterThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.LessThan             => numericRangeQuery.LessThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.LessThanOrEqual      => numericRangeQuery.LessThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.GreaterThan          => numericRangeQuery.GreaterThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.GreaterThanOrEqual   => numericRangeQuery.GreaterThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
                 _ => default
 
             });
