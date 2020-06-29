@@ -1,5 +1,6 @@
 ﻿using Mango.Elasticsearch.Expressions;
 using Mango.Elasticsearch.Extensions;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using static Mango.Elasticsearch.Extensions.ObjectExtensions;
@@ -26,7 +27,11 @@ namespace Mango.ElasticSearch.Handler
 
             return new EvaluatedExpression
             {
-                PropertyName = ExtractMemberName(member as MemberExpression),
+                PropertyName = member switch
+                {
+                    MethodCallExpression m => ((Func<string>)(() => (m.Object as MemberExpression).Member.Name))(),
+                    _ => ExtractMemberName(member as MemberExpression)
+                },
                 CallMethod = method,
                 Operation = nodeOperation,
                 CombineOperation = combineOperation,

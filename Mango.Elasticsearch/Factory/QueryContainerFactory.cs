@@ -47,16 +47,8 @@ namespace Mango.Elasticsearch.Factory
                     matchQuery.Query = "*" + evaluatedExpression.Value.ToString();
                     return new QueryContainer(matchQuery);
                 }),
-                "ToLower"           => ExecuteFunc(() =>
-                {
-                    matchQuery.Query = evaluatedExpression.Value.ToString().ToLower();
-                    return new QueryContainer(matchQuery);
-                }),
-                "ToUpper"           => ExecuteFunc(() =>
-                {
-                    matchQuery.Query = evaluatedExpression.Value.ToString().ToUpper();
-                    return new QueryContainer(matchQuery);
-                }),
+                "ToLower"           => GetInvariantElasticQueryContainer(matchQuery, evaluatedExpression),
+                "ToUpper"           => GetInvariantElasticQueryContainer(matchQuery, evaluatedExpression),
                 "Contains"          => EvaluateContains(evaluatedExpression.Value, matchQuery),
                 _                   => ExecuteFunc(() =>
                 {
@@ -65,6 +57,18 @@ namespace Mango.Elasticsearch.Factory
                 })
             };
         }
+
+        private static QueryContainer GetInvariantElasticQueryContainer(MatchQuery matchQuery, EvaluatedExpression evaluatedExpression)
+        {
+            return ExecuteFunc(() =>
+            {
+                matchQuery.Query = evaluatedExpression.Value
+                        .ToString()
+                        .ToLowerInvariantElastic();
+                return new QueryContainer(matchQuery);
+            });
+        }
+
         private static QueryContainer EvaluateContains(object value, MatchQuery matchQuery)
         {
             var r = new List<QueryContainer>();
