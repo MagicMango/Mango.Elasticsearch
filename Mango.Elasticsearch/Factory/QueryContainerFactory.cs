@@ -40,32 +40,32 @@ namespace Mango.Elasticsearch.Factory
             {
                 "StartsWith" => ExecuteFunc(() =>
                 {
-                    matchQuery.Query = (evaluatedExpression.Value?.ToString() ?? ELASTICNULLVALUE) + "*";
+                    matchQuery.Query = (evaluatedExpression.Value?.ToString()) + "*";
                     return new QueryContainer(matchQuery);
                 }),
                 "EndsWith" => ExecuteFunc(() =>
                 {
-                    matchQuery.Query = ("*" + evaluatedExpression.Value?.ToString()) ?? ELASTICNULLVALUE;
+                    matchQuery.Query = ("*" + evaluatedExpression.Value?.ToString());
                     return new QueryContainer(matchQuery);
                 }),
                 "ToLower" => ExecuteFunc(() =>
                 {
                     matchQuery.Query = evaluatedExpression.Value?
                             .ToString()
-                            .ToLowerInvariantElastic() ?? ELASTICNULLVALUE;
+                            .ToLowerInvariantElastic();
                     return new QueryContainer(matchQuery);
                 }),
                 "ToUpper" => ExecuteFunc(() =>
                 {
                     matchQuery.Query = evaluatedExpression.Value?
                             .ToString()
-                            .ToLowerInvariantElastic() ?? ELASTICNULLVALUE;
+                            .ToLowerInvariantElastic();
                     return new QueryContainer(matchQuery);
                 }),
                 "Contains" => EvaluateContains(evaluatedExpression.Value, matchQuery),
                 _ => ExecuteFunc(() =>
                 {
-                    matchQuery.Query = evaluatedExpression.Value?.ToStringExtendend() ?? ELASTICNULLVALUE;
+                    matchQuery.Query = evaluatedExpression.Value?.ToStringExtendend();
                     return new QueryContainer(matchQuery);
                 })
             };
