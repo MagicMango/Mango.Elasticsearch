@@ -13,23 +13,29 @@ namespace Mango.ElasticSearch.Handler
         {
             object result = null;
             string method = null;
-
-            result = value.NodeType switch
+            result = value switch
             {
-                ExpressionType.MemberAccess => (value as MemberExpression).GetValue(),
-                ExpressionType.Constant     => (value as ConstantExpression).Value,
-                ExpressionType.Call         => ExecuteFunc(()=> {
-                                                    method = (value as MethodCallExpression).Method.Name;
-                                                    return  ((value as MethodCallExpression).Object as MemberExpression).GetValue();
-                                                }),
+                MemberExpression memberExpression => memberExpression?.GetValue(),
+                ConstantExpression constantExpression => (value as ConstantExpression).Value,
+                MethodCallExpression methodCallExpression => ExecuteFunc(() => {
+                    method = methodCallExpression.Method.Name;
+                    return methodCallExpression.Object switch
+                    {
+                        MemberExpression innerMemberExpression => innerMemberExpression?.GetValue(),
+                        _ => default
+                    };
+                }),
                 _ => default
             };
-
             return new EvaluatedExpression
             {
                 PropertyName = member switch
                 {
-                    MethodCallExpression m => ((Func<string>)(() => (m.Object as MemberExpression).Member.Name))(),
+                    MethodCallExpression m => ExecuteFunc(() => m.Object switch
+                    {
+                        MemberExpression memberExpression => memberExpression?.Member.Name,
+                        _ => null
+                    }),
                     _ => ExtractMemberName(member as MemberExpression)
                 },
                 CallMethod = method,
@@ -47,10 +53,9 @@ namespace Mango.ElasticSearch.Handler
         public static string ExtractMemberName(MemberExpression memberExpressionName)
         {
             List<string> memberNames = new List<string>();
-            while (memberExpressionName?.Expression != null)
+            if (memberExpressionName?.Member != null)
             {
                 memberNames.Add(memberExpressionName.Member.Name.ToLowerCamelCase());
-                memberExpressionName = memberExpressionName.Expression as MemberExpression;
             }
             memberNames.Reverse();
             return string.Join('.', memberNames);

@@ -37,10 +37,10 @@ namespace Mango.Elasticsearch.Extensions
             _ => o.ToString()
         };
         public static TEntity ExecuteFunc<TEntity>(Func<TEntity> funcToRun)
-            where TEntity: new()
         {
             return funcToRun();
         }
+
         public static bool IsNumeric(this object o) => o is byte || o is sbyte || o is ushort || o is uint || o is ulong || o is short || o is int || o is long || o is float || o is double || o is decimal;
     }
 }

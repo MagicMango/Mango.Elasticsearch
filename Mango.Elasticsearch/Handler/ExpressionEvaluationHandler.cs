@@ -9,19 +9,25 @@ using System.Linq.Expressions;
 namespace Mango.ElasticSearch.Handler
 {
     public static class ExpressionEvaluationHandler<TParameter>
-        where TParameter : class
+         where TParameter : class
     {
         public static BoolQuery CreateElasticSearchQuery(Expression<Func<TParameter, bool>> rootExpression)
         {
             return CheckForHandle(rootExpression.Body, ExpressionType.Default);
         }
+
+        public static BoolQuery CreateElasticSearchQuery(IQueryable<object> rootExpression)
+        {
+            return CheckForHandle(rootExpression.Expression, ExpressionType.Default);
+        }
+
         public static BoolQuery CheckForHandle(Expression expression, ExpressionType operandType)
         {
             return expression switch
             {
-                Expression e when e is BinaryExpression     => HandleExpression(e as BinaryExpression, operandType),
-                Expression e when e is UnaryExpression      => HandleExpression(e as UnaryExpression, operandType),
-                Expression e when e is MemberExpression     => HandleExpression(e as MemberExpression, operandType),
+                Expression e when e is BinaryExpression => HandleExpression(e as BinaryExpression, operandType),
+                Expression e when e is UnaryExpression => HandleExpression(e as UnaryExpression, operandType),
+                Expression e when e is MemberExpression => HandleExpression(e as MemberExpression, operandType),
                 Expression e when e is MethodCallExpression => HandleExpression(e as MethodCallExpression, operandType),
                 _ => new BoolQuery()
             };
@@ -34,55 +40,55 @@ namespace Mango.ElasticSearch.Handler
         {
             return (binaryExpression.NodeType, operandType, binaryExpression.Left.NodeType, binaryExpression.Right.NodeType) switch
             {
-                (_, ExpressionType.Not, _, ExpressionType.MemberAccess)     => new BoolQuery()
+                (_, ExpressionType.Not, _, ExpressionType.MemberAccess) => new BoolQuery()
                 {
                     MustNot = new QueryContainer[] {
-                        CreateExpressionsForElasticsearch(new[] 
-                        { 
+                        CreateExpressionsForElasticsearch(new[]
+                        {
                             EvaluationExpressionHandler
-                                .GetEvaluatedExpression(binaryExpression.Left, binaryExpression.Right, binaryExpression.NodeType, operandType) 
+                                .GetEvaluatedExpression(binaryExpression.Left, binaryExpression.Right, binaryExpression.NodeType, operandType)
                         }.ToList())
                     }
                 },
-                (_, ExpressionType.Not, ExpressionType.MemberAccess, _)     => new BoolQuery()
-                {
-                    MustNot = new QueryContainer[] 
-                    {
-                        CreateExpressionsForElasticsearch(new[] 
-                        { 
-                            EvaluationExpressionHandler
-                                .GetEvaluatedExpression(binaryExpression.Right, binaryExpression.Left, binaryExpression.NodeType, operandType) 
-                        }.ToList())
-                    }
-                },
-                (_, ExpressionType.Not, _, _)                               => new BoolQuery()
+                (_, ExpressionType.Not, ExpressionType.MemberAccess, _) => new BoolQuery()
                 {
                     MustNot = new QueryContainer[]
                     {
-                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), 
+                        CreateExpressionsForElasticsearch(new[]
+                        {
+                            EvaluationExpressionHandler
+                                .GetEvaluatedExpression(binaryExpression.Right, binaryExpression.Left, binaryExpression.NodeType, operandType)
+                        }.ToList())
+                    }
+                },
+                (_, ExpressionType.Not, _, _) => new BoolQuery()
+                {
+                    MustNot = new QueryContainer[]
+                    {
+                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType),
                         CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
                     }
                 },
-                (ExpressionType.OrElse, _, _, _)                            => new BoolQuery()
+                (ExpressionType.OrElse, _, _, _) => new BoolQuery()
                 {
                     Should = new QueryContainer[]
                     {
-                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), 
+                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType),
                         CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
                     }
                 },
-                (ExpressionType.AndAlso, _, _, _)                           => new BoolQuery()
+                (ExpressionType.AndAlso, _, _, _) => new BoolQuery()
                 {
                     Must = new QueryContainer[]
                     {
-                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType), 
+                        CheckForHandle(binaryExpression.Left, binaryExpression.NodeType),
                         CheckForHandle(binaryExpression.Right, binaryExpression.NodeType)
                     }
                 },
-                _ => CreateExpressionsForElasticsearch(new[] 
-                    { 
+                _ => CreateExpressionsForElasticsearch(new[]
+                    {
                         EvaluationExpressionHandler
-                            .GetEvaluatedExpression(binaryExpression.Right, binaryExpression.Left, binaryExpression.NodeType, operandType) 
+                            .GetEvaluatedExpression(binaryExpression.Right, binaryExpression.Left, binaryExpression.NodeType, operandType)
                     }.ToList())
             };
         }

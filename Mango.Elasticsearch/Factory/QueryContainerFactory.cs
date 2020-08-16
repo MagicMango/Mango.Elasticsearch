@@ -11,12 +11,13 @@ namespace Mango.Elasticsearch.Factory
 {
     public static class QueryContainerFactory
     {
+        private const string ELASTICNULLVALUE = "NULL";
         public static QueryContainer CreateContainer(EvaluatedExpression evaluatedExpression)
         {
             return evaluatedExpression switch
             {
                 EvaluatedExpression e when e.Operation == ExpressionType.Call ||
-                                           e.CallMethod != null                     => HandleMethodCalls(evaluatedExpression),
+                                           e.CallMethod != null => HandleMethodCalls(evaluatedExpression),
                 EvaluatedExpression e when e.Operation == ExpressionType.Equal ||
                                            e.Operation == ExpressionType.NotEqual
                                                                                     => new QueryContainer(new MatchQuery()
@@ -24,8 +25,8 @@ namespace Mango.Elasticsearch.Factory
                                                                                         Field = new Field(evaluatedExpression.PropertyName.ToLowerCamelCase() + ((evaluatedExpression.Value is string) ? ".keyword" : string.Empty)),
                                                                                         Query = evaluatedExpression.Value.ToStringExtendend()
                                                                                     }),
-                EvaluatedExpression e when e.Value.IsNumeric()                      => HandleNumeric(evaluatedExpression),
-                EvaluatedExpression e when e.Value is DateTime                      => HandleDateTime(evaluatedExpression),
+                EvaluatedExpression e when e.Value.IsNumeric() => HandleNumeric(evaluatedExpression),
+                EvaluatedExpression e when e.Value is DateTime => HandleDateTime(evaluatedExpression),
                 _ => null
             };
         }
@@ -37,44 +38,44 @@ namespace Mango.Elasticsearch.Factory
             };
             return evaluatedExpression.CallMethod switch
             {
-                "StartsWith"        => ExecuteFunc(() =>
+                "StartsWith" => ExecuteFunc(() =>
                 {
-                    matchQuery.Query = evaluatedExpression.Value.ToString() + "*";
+                    matchQuery.Query = (evaluatedExpression.Value?.ToString() ?? ELASTICNULLVALUE) + "*";
                     return new QueryContainer(matchQuery);
                 }),
-                "EndsWith"          => ExecuteFunc(() =>
+                "EndsWith" => ExecuteFunc(() =>
                 {
-                    matchQuery.Query = "*" + evaluatedExpression.Value.ToString();
+                    matchQuery.Query = ("*" + evaluatedExpression.Value?.ToString()) ?? ELASTICNULLVALUE;
                     return new QueryContainer(matchQuery);
                 }),
-                "ToLower"           => GetInvariantElasticQueryContainer(matchQuery, evaluatedExpression),
-                "ToUpper"           => GetInvariantElasticQueryContainer(matchQuery, evaluatedExpression),
-                "Contains"          => EvaluateContains(evaluatedExpression.Value, matchQuery),
-                _                   => ExecuteFunc(() =>
+                "ToLower" => ExecuteFunc(() =>
                 {
-                    matchQuery.Query = evaluatedExpression.Value.ToStringExtendend();
+                    matchQuery.Query = evaluatedExpression.Value?
+                            .ToString()
+                            .ToLowerInvariantElastic() ?? ELASTICNULLVALUE;
+                    return new QueryContainer(matchQuery);
+                }),
+                "ToUpper" => ExecuteFunc(() =>
+                {
+                    matchQuery.Query = evaluatedExpression.Value?
+                            .ToString()
+                            .ToLowerInvariantElastic() ?? ELASTICNULLVALUE;
+                    return new QueryContainer(matchQuery);
+                }),
+                "Contains" => EvaluateContains(evaluatedExpression.Value, matchQuery),
+                _ => ExecuteFunc(() =>
+                {
+                    matchQuery.Query = evaluatedExpression.Value?.ToStringExtendend() ?? ELASTICNULLVALUE;
                     return new QueryContainer(matchQuery);
                 })
             };
         }
-
-        private static QueryContainer GetInvariantElasticQueryContainer(MatchQuery matchQuery, EvaluatedExpression evaluatedExpression)
-        {
-            return ExecuteFunc(() =>
-            {
-                matchQuery.Query = evaluatedExpression.Value
-                        .ToString()
-                        .ToLowerInvariantElastic();
-                return new QueryContainer(matchQuery);
-            });
-        }
-
         private static QueryContainer EvaluateContains(object value, MatchQuery matchQuery)
         {
             var r = new List<QueryContainer>();
             foreach (var item in (IList)value)
             {
-                r.Add(new QueryContainer(new BoolQuery() { Must = new QueryContainer[] { new MatchQuery() { Field = matchQuery.Field, Query = item.ToString() } } }));
+                r.Add(new QueryContainer(new BoolQuery() { Must = new QueryContainer[] { new MatchQuery() { Field = matchQuery.Field, Query = item?.ToString() ?? ELASTICNULLVALUE } } }));
             }
             return new QueryContainer(new BoolQuery() { Should = r });
         }
@@ -86,11 +87,11 @@ namespace Mango.Elasticsearch.Factory
             };
             _ = (evaluatedExpression.Operation switch
             {
-                ExpressionType.LessThan             => dateRangeQuery.LessThan = Convert.ToDateTime(evaluatedExpression.Value),
-                ExpressionType.LessThanOrEqual      => dateRangeQuery.LessThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
-                ExpressionType.GreaterThan          => dateRangeQuery.GreaterThan = Convert.ToDateTime(evaluatedExpression.Value),
-                ExpressionType.GreaterThanOrEqual   => dateRangeQuery.GreaterThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
-                _                                   => default
+                ExpressionType.LessThan => dateRangeQuery.LessThan = Convert.ToDateTime(evaluatedExpression.Value),
+                ExpressionType.LessThanOrEqual => dateRangeQuery.LessThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
+                ExpressionType.GreaterThan => dateRangeQuery.GreaterThan = Convert.ToDateTime(evaluatedExpression.Value),
+                ExpressionType.GreaterThanOrEqual => dateRangeQuery.GreaterThanOrEqualTo = Convert.ToDateTime(evaluatedExpression.Value),
+                _ => default
             });
             return new QueryContainer(dateRangeQuery);
         }
@@ -102,10 +103,10 @@ namespace Mango.Elasticsearch.Factory
             };
             _ = (evaluatedExpression.Operation switch
             {
-                ExpressionType.LessThan             => numericRangeQuery.LessThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
-                ExpressionType.LessThanOrEqual      => numericRangeQuery.LessThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
-                ExpressionType.GreaterThan          => numericRangeQuery.GreaterThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
-                ExpressionType.GreaterThanOrEqual   => numericRangeQuery.GreaterThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.LessThan => numericRangeQuery.LessThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.LessThanOrEqual => numericRangeQuery.LessThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.GreaterThan => numericRangeQuery.GreaterThan = new double?(Convert.ToDouble(evaluatedExpression.Value)),
+                ExpressionType.GreaterThanOrEqual => numericRangeQuery.GreaterThanOrEqualTo = new double?(Convert.ToDouble(evaluatedExpression.Value)),
                 _ => default
 
             });
